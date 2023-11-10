@@ -3,10 +3,11 @@ package com.example.karttasovellus
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -21,63 +22,73 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.MapView
+import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.maps.android.compose.CameraPositionState
 import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.android.gms.location.Priority
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private var userLocation by mutableStateOf<LatLng?>(null)
+    private val viewModel by viewModels<LocationViewModel>()
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        checkLocationPermission()
 
-    private val locationPermissionRequest = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        when {
-            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                    permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true -> {
-                // Käyttöoikeus myönnettiin, hae käyttäjän sijainti
-                fetchLocation()
-            }
-            else -> {
-                // Käyttöoikeutta ei myönnetty
-                Toast.makeText(
-                    this,
-                    "Sijaintioikeudet tarvitaan kartan näyttämiseen",
-                    Toast.LENGTH_LONG
-                ).show()
+        setContent {
+            val navController = rememberNavController()
+            NavHost(navController = navController, startDestination = "home") {
+                composable("home") {
+                    HomeScreen(navController)
+                }
+                composable("map") {
+                    MapScreen()
+                }
             }
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-
+    private fun checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(
                 this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            locationPermissionRequest.launch(arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION))
+            // Pyydä käyttöoikeuksia
         } else {
             // Käyttöoikeus on jo myönnetty, hae sijainti
             fetchLocation()
         }
+    }
 
-        setContent {
-            val cameraPositionState = rememberCameraPositionState()
-            MapViewContainer(cameraPositionState)
+    @Composable
+    fun HomeScreen(navController: NavHostController) {
+        Button(onClick = { navController.navigate("map") }) {
+            Text("Avaa kartta")
         }
+    }
+
+    @Composable
+    fun MapScreen() {
+        val viewModelUserLocation = viewModel.userLocation.value ?: LatLng(60.1699, 24.9384) // Oletusarvo Helsinki
+        val cameraPositionState = rememberCameraPositionState {
+            position = CameraPosition(viewModelUserLocation, 10f, 0f, 0f)
+        }
+
+        MapViewContainer(cameraPositionState)
     }
 
     private fun fetchLocation() {
@@ -94,6 +105,7 @@ class MainActivity : ComponentActivity() {
                     val userLocation = locationResult.locations.first()
                     // Update the state holder with the new user location
                     this@MainActivity.userLocation = LatLng(userLocation.latitude, userLocation.longitude)
+                    viewModel.userLocation.value = LatLng(userLocation.latitude, userLocation.longitude)
                 }
             }
         }
