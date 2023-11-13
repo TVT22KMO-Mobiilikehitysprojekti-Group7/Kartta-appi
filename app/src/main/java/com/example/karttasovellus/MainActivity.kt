@@ -6,15 +6,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
@@ -27,24 +27,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.MapView
-import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
-import com.google.maps.android.compose.CameraPositionState
-import com.google.maps.android.compose.rememberCameraPositionState
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var locationCallback: LocationCallback
-    private var userLocation by mutableStateOf<LatLng?>(null)
     private val viewModel by viewModels<LocationViewModel>()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,7 +49,7 @@ class MainActivity : ComponentActivity() {
                     HomeScreen(navController)
                 }
                 composable("map") {
-                    MapScreen()
+                    MapScreen(viewModel)
                 }
             }
         }
@@ -82,65 +73,67 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun MapScreen() {
-        val viewModelUserLocation = viewModel.userLocation.value ?: LatLng(60.1699, 24.9384) // Oletusarvo Helsinki
-        val cameraPositionState = rememberCameraPositionState {
-            position = CameraPosition(viewModelUserLocation, 10f, 0f, 0f)
+    fun MapScreen(viewModel: LocationViewModel) {
+        val defaultLocation = LatLng(65.0121, 25.4651)
+        val isMapCentered by viewModel.isMapCentered
+
+        LaunchedEffect(viewModel.shouldFetchLocation.value) {
+            if (viewModel.shouldFetchLocation.value) {
+                fetchLocation()
+                viewModel.shouldFetchLocation.value = false
+            }
         }
 
-        MapViewContainer(cameraPositionState)
+        Column {
+            Button(onClick = {
+                viewModel.isMapCentered.value = true
+                viewModel.shouldFetchLocation.value = true // Päivitä sijainti
+            }) {
+                Text("Keskitä kartta sijaintiini")
+            }
+            MapViewContainer(isMapCentered, defaultLocation)
+        }
     }
 
     private fun fetchLocation() {
-        val locationRequest = LocationRequest.create().apply {
-            interval = 10000
-            fastestInterval = 5000
-            priority = Priority.PRIORITY_HIGH_ACCURACY
-        }
-
-        locationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                locationResult ?: return
-                if (locationResult.locations.isNotEmpty()) {
-                    val userLocation = locationResult.locations.first()
-                    // Update the state holder with the new user location
-                    this@MainActivity.userLocation = LatLng(userLocation.latitude, userLocation.longitude)
-                    viewModel.userLocation.value = LatLng(userLocation.latitude, userLocation.longitude)
-                }
-            }
-        }
-
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
             ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // Käyttöoikeus puuttuu, joten ei tehdä mitään
             return
         }
-        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
-    }
 
-    @Composable
-    fun MapViewContainer(cameraPositionState: CameraPositionState) {
-        val mapView = rememberMapViewWithLifecycle()
-        val userLocation by rememberUpdatedState(newValue = userLocation)
-
-        AndroidView({ mapView }) { mapView ->
-            mapView.getMapAsync { googleMap ->
-                // Check if userLocation is not null
-                userLocation?.let { location ->
-                    val cameraUpdate = CameraUpdateFactory.newLatLngZoom(location, 15f)
-                    googleMap.moveCamera(cameraUpdate)
-
-                    // Add a marker to the user's location
-                    googleMap.addMarker(
-                        MarkerOptions()
-                            .position(location)
-                            .title("Olet tässä")
-                    )
-                }
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            location?.let {
+                viewModel.userLocation.value = LatLng(it.latitude, it.longitude)
             }
         }
     }
 
+
+    @Composable
+    fun MapViewContainer(centerMap: Boolean, defaultLocation: LatLng) {
+        val mapView = rememberMapViewWithLifecycle()
+        val userLocationState by rememberUpdatedState(newValue = viewModel.userLocation.value)
+
+        AndroidView({ mapView }) { mapViewInstance ->
+            mapViewInstance.getMapAsync { googleMap ->
+                // Ensimmäisellä renderöinnillä, siirrä kamera oletussijaintiin
+                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 12f))
+
+                if (centerMap) {
+                    val userLocation = userLocationState // Tallenna arvo paikalliseen muuttujaan
+                    if (userLocation != null) {
+                        // Keskitä kartta käyttäjän sijaintiin ja lisää merkki, jos centerMap on true ja userLocation ei ole null
+                        googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 13f))
+                        googleMap.addMarker(
+                            MarkerOptions()
+                                .position(userLocation)
+                                .title("Olet tässä")
+                        )
+                    }
+                }
+            }
+        }
+    }
 
     @Composable
     fun rememberMapViewWithLifecycle(): MapView {
