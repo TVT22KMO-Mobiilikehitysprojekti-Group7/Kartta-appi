@@ -6,7 +6,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,14 +16,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -66,13 +69,6 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun HomeScreen(navController: NavHostController) {
-        Button(onClick = { navController.navigate("map") }) {
-            Text("Avaa kartta")
-        }
-    }
-
-    @Composable
     fun MapScreen(viewModel: LocationViewModel) {
         val defaultLocation = LatLng(65.0121, 25.4651)
         val isMapCentered by viewModel.isMapCentered
@@ -84,16 +80,23 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        Column {
-            Button(onClick = {
-                viewModel.isMapCentered.value = true
-                viewModel.shouldFetchLocation.value = true // Päivitä sijainti
-            }) {
+        Box {
+            MapViewContainer(isMapCentered, defaultLocation)
+
+            Button(
+                onClick = {
+                    viewModel.isMapCentered.value = true
+                    viewModel.shouldFetchLocation.value = true // Päivitä sijainti
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
                 Text("Keskitä kartta sijaintiini")
             }
-            MapViewContainer(isMapCentered, defaultLocation)
         }
     }
+
 
     private fun fetchLocation() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
