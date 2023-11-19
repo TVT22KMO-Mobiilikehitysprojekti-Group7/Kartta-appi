@@ -1,35 +1,22 @@
 package com.example.karttasovellus
 
+import SavedLocationsScreen
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.MapView
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MarkerOptions
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 
 class MainActivity : ComponentActivity() {
 
@@ -53,13 +40,24 @@ class MainActivity : ComponentActivity() {
                 composable("home") {
                     HomeScreen(navController)
                 }
-                composable("map") {
-                    MapScreen(viewModel, firestoreManager)
+                composable(
+                    "map/{latitude}/{longitude}",
+                    arguments = listOf(
+                        navArgument("latitude") { type = NavType.StringType },
+                        navArgument("longitude") { type = NavType.StringType }
+                    )
+                ) { backStackEntry ->
+                    val latitude = backStackEntry.arguments?.getString("latitude")?.toDoubleOrNull()
+                    val longitude = backStackEntry.arguments?.getString("longitude")?.toDoubleOrNull()
+                    MapScreen(viewModel, firestoreManager, latitude, longitude)
+                }
+                composable("savedLocations") {
+                    SavedLocationsScreen(firestoreManager, navController)
                 }
             }
+
         }
     }
-
     private fun checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(
                 this, Manifest.permission.ACCESS_FINE_LOCATION)

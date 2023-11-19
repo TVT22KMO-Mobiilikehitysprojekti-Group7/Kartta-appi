@@ -9,10 +9,11 @@ class FirestoreManager {
 
     private val db = Firebase.firestore
 
-    fun saveLocation(location: LatLng) {
+    fun saveLocationWithNote(location: LatLng, note: String) {
         val locationData = hashMapOf(
             "latitude" to location.latitude,
             "longitude" to location.longitude,
+            "note" to note,
             "timestamp" to com.google.firebase.Timestamp.now()
         )
 
@@ -25,13 +26,14 @@ class FirestoreManager {
             }
     }
 
-    fun fetchLocations() {
+    fun getSavedLocations(callback: (List<LocationData>) -> Unit) {
         db.collection("locations")
             .get()
             .addOnSuccessListener { documents ->
-                for (document in documents) {
-                    Log.d("Firestore", "${document.id} => ${document.data}")
+                val locationsList = documents.mapNotNull { doc ->
+                    doc.toObject(LocationData::class.java)
                 }
+                callback(locationsList)
             }
             .addOnFailureListener { exception ->
                 Log.w("Firestore", "Error getting documents: ", exception)

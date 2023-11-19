@@ -3,8 +3,10 @@ package com.example.karttasovellus
 import android.os.Bundle
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,19 +22,28 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 
 @Composable
-fun MapScreen(viewModel: LocationViewModel, firestoreManager: FirestoreManager) {
+fun MapScreen(
+    viewModel: LocationViewModel,
+    firestoreManager: FirestoreManager,
+    latitude: Double? = null,
+    longitude: Double? = null
+) {
+    // Määritellään oletussijainti ennen käyttöä
     val defaultLocation = LatLng(65.0121, 25.4651)
-    val isMapCentered by viewModel.isMapCentered
-    val userLocation by viewModel.userLocation
 
-    LaunchedEffect(userLocation) {
-        userLocation?.let {
-            firestoreManager.saveLocation(it)
-        }
+    // Määritellään kohdesijainti perustuen annettuihin latitude ja longitude -arvoihin
+    val targetLocation = if (latitude != null && longitude != null) {
+        LatLng(latitude, longitude)
+    } else {
+        defaultLocation
     }
 
+    val isMapCentered by viewModel.isMapCentered
+    val userLocation by viewModel.userLocation
+    var showSaveDialog by remember { mutableStateOf(false) }
+
     Box {
-        MapViewContainer(isMapCentered, defaultLocation, userLocation)
+        MapViewContainer(isMapCentered, targetLocation, userLocation)
 
         Button(
             onClick = {
@@ -43,11 +54,57 @@ fun MapScreen(viewModel: LocationViewModel, firestoreManager: FirestoreManager) 
                 .align(Alignment.TopEnd)
                 .padding(16.dp)
         ) {
-            Text("Keskitä kartta sijaintiini")
+            Text("Näytä sijaintini")
+        }
+        Button(
+            onClick = { showSaveDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Text("Tallenna sijaintini")
+        }
+
+        if (showSaveDialog) {
+            SaveLocationDialog(
+                onDismissRequest = { showSaveDialog = false },
+                onSave = { note ->
+                    userLocation?.let {
+                        firestoreManager.saveLocationWithNote(it, note)
+                    }
+                    showSaveDialog = false
+                }
+            )
         }
     }
 }
 
+@Composable
+fun SaveLocationDialog(onDismissRequest: () -> Unit, onSave: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text("Tallenna sijainti") },
+        text = {
+            TextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Huomio") }
+            )
+        },
+        confirmButton = {
+            Button(onClick = { onSave(text) }) {
+                Text("Tallenna")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismissRequest) {
+                Text("Peruuta")
+            }
+        }
+    )
+}
 
 
 
