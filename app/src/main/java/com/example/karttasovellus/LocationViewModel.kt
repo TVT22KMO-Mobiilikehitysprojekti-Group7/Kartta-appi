@@ -8,4 +8,8 @@ class LocationViewModel : ViewModel() {
     var userLocation = mutableStateOf<LatLng?>(null)
     var isMapCentered = mutableStateOf(false)
     var shouldFetchLocation = mutableStateOf(false)
+
+    fun resetUserLocation() {
+        userLocation.value = null
+    }
 }
