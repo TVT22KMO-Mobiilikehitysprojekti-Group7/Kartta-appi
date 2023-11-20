@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "191071105282",
+    "project_id": "kartta-appi-7a2d1",
+    "storage_bucket": "kartta-appi-7a2d1.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:191071105282:android:9f34d5a988cf9988e9521b",
+        "android_client_info": {
+          "package_name": "com.example.karttasovellus"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB_bkzf_esSdpy2q2_6tsp_QtMXuopydLk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
